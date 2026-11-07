@@ -1,0 +1,36 @@
+name: Actu marchés en direct
+
+on:
+  schedule:
+    - cron: "*/10 6-21 * * 1-5"   # toutes les 10 min en journée de bourse (UTC)
+    - cron: "0 * * * *"            # puis toutes les heures (crypto, week-end, actualités)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: live
+  cancel-in-progress: true
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Récupérer cotations et titres
+        run: python fetch_actu.py live
+      - name: Publier sur la branche data (un seul commit, historique non gonflé)
+        run: |
+          cp data/live.json /tmp/live.json
+          git config user.name "izily-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git checkout --orphan live-tmp
+          git rm -rf . -q
+          cp /tmp/live.json live.json
+          git add live.json
+          git commit -m "live $(date -u +%FT%TZ)"
+          git push -f origin live-tmp:data

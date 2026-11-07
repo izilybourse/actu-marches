@@ -22,6 +22,8 @@ SYMBOLS = [
     ("spx", "S&P 500", "^GSPC", "^spx", "us", "idx"),
     ("ndx", "Nasdaq Composite", "^IXIC", "^ndq", "us", "idx"),
     ("dji", "Dow Jones", "^DJI", "^dji", "us", "idx"),
+    ("ndx100", "Nasdaq 100", "^NDX", None, "idx2", "idx"),
+    ("vix", "VIX", "^VIX", None, "idx2", "idx"),
     ("tnx", "Taux américain 10 ans (%)", "^TNX", None, "macro", "yield"),
     ("fr10", "Taux français 10 ans – OAT (%)", None, ["10yfry.b"], "macro", "yield"),
     ("de10", "Taux allemand 10 ans – Bund (%)", None, ["10ydey.b"], "macro", "yield"),
@@ -65,7 +67,7 @@ def yahoo(sym):
             if c is not None:
                 d = (datetime.datetime.fromtimestamp(ts, datetime.timezone.utc) + datetime.timedelta(seconds=off)).date()
                 bars.append((d, float(c)))
-        return (bars[-2:], res["meta"].get("regularMarketTime")) if len(bars) >= 2 else None
+        return (bars[-2:], res["meta"].get("regularMarketTime"), [round(c, 2) for _, c in bars[-12:]]) if len(bars) >= 2 else None
     except Exception as e:
         print(f"  ! Yahoo {sym}: {e}", file=sys.stderr)
         return None
@@ -84,13 +86,13 @@ def stooq(sym):
 def get_quotes():
     quotes = {}
     for key, label, ysym, ssym, grp, kind in SYMBOLS:
-        bars, mt, src = None, None, None
+        bars, mt, src, series = None, None, None, None
         if key in ZB_URLS:
             bars, src = bond_bars(key, ssym)
         if ysym:
             r = yahoo(ysym)
             if r:
-                bars, mt = r
+                bars, mt, series = r
         if not bars and ssym:
             for sym in (ssym if isinstance(ssym, list) else [ssym]):
                 bars = stooq(sym)
@@ -101,7 +103,7 @@ def get_quotes():
             continue
         (d0, prev), (d1, last) = bars
         quotes[key] = {"label": label, "grp": grp, "kind": kind, "last": last, "prev": prev,
-                       "chg": (last / prev - 1) * 100 if prev else 0.0, "date": d1.isoformat(), "t": mt, "src": src}
+                       "chg": (last / prev - 1) * 100 if prev else 0.0, "date": d1.isoformat(), "t": mt, "src": src, "s": series}
     return quotes
 
 
@@ -374,7 +376,7 @@ def write_entry(Q, news, now):
 def serialize(key, q):
     return {"key": key, "label": q["label"], "grp": q["grp"], "level": level(q),
             "change": change(q), "cls": cls(q), "date": q["date"], "t": q.get("t"), "src": q.get("src"),
-            "value": round(q["last"], 4)}
+            "value": round(q["last"], 4), "s": q.get("s")}
 
 def live():
     now = datetime.datetime.now(datetime.timezone.utc)

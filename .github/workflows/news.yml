@@ -1,0 +1,35 @@
+name: Actualités accueil
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # toutes les 15 minutes, 24h/24
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: news
+  cancel-in-progress: true
+
+jobs:
+  news:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Récupérer les actualités
+        run: python fetch_news.py
+      - name: Publier sur la branche news (un seul commit)
+        run: |
+          cp data/news.json /tmp/news.json
+          git config user.name "izily-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git checkout --orphan news-tmp
+          git rm -rf . -q
+          cp /tmp/news.json news.json
+          git add news.json
+          git commit -m "news $(date -u +%FT%TZ)"
+          git push -f origin news-tmp:news

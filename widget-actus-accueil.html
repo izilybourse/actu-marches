@@ -1,0 +1,83 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Prosto+One&display=swap');
+#izily-news{background:#000;font-family:'Inter',sans-serif;padding:16px 12px;box-sizing:border-box}
+#izily-news *{box-sizing:border-box}
+#izily-news .in-box{max-width:1200px;margin:0 auto;background:#111;border:1px solid #222;border-radius:18px;padding:20px 18px}
+#izily-news .in-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+#izily-news h2{font-family:'Prosto One',sans-serif;color:#fff;font-weight:400;font-size:1.25rem;margin:0}
+#izily-news .in-live{color:#A0A0A0;font-size:.75rem;white-space:nowrap}
+#izily-news .in-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#2ecc71;margin-right:6px;animation:inp 1.6s infinite}
+#izily-news .in-dot.old{background:#A0A0A0;animation:none}
+@keyframes inp{50%{opacity:.25}}
+#izily-news .in-row{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:8px;scrollbar-width:thin;scrollbar-color:#FF5500 #181818}
+#izily-news .in-card{flex:0 0 min(270px,78%);scroll-snap-align:start;background:#181818;border-radius:14px;overflow:hidden;text-decoration:none;color:#fff;display:flex;flex-direction:column;transition:transform .15s,box-shadow .15s}
+#izily-news .in-card:hover{transform:translateY(-2px);box-shadow:0 0 0 1px #FF5500}
+#izily-news .in-img{width:100%;aspect-ratio:16/9;background:#222 center/cover no-repeat;display:flex;align-items:center;justify-content:center;color:#FF5500;font-family:'Prosto One',sans-serif;font-size:1.6rem}
+#izily-news .in-body{padding:12px 13px 14px;display:flex;flex-direction:column;gap:8px;flex:1}
+#izily-news .in-t{font-weight:600;font-size:.95rem;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+#izily-news .in-m{margin-top:auto;font-size:.8rem;color:#A0A0A0}
+#izily-news .in-m b{color:#FF5500;font-weight:600}
+#izily-news .in-more{display:block;text-align:center;color:#FF5500;font-weight:600;font-size:.9rem;text-decoration:none;margin-top:12px}
+#izily-news .in-more:hover{text-decoration:underline}
+#izily-news .in-msg{color:#A0A0A0;text-align:center;padding:26px 0;width:100%}
+@media(min-width:900px){#izily-news .in-card{flex:1 1 0;min-width:0}}
+</style>
+
+<div id="izily-news"><div class="in-box">
+  <div class="in-head"><h2>Actualités économiques</h2><span class="in-live" id="in-live"></span></div>
+  <div class="in-row" id="in-row"><p class="in-msg">Chargement…</p></div>
+  <a class="in-more" id="in-more" href="https://izilyfire.fr/blog">Voir toutes les actualités →</a>
+</div></div>
+
+<script>
+(function(){
+  var URL_JSON='https://raw.githubusercontent.com/izilybourse/actu-marches/news/news.json';
+  var NB_MAX=4;            /* cartes affichées sur grand écran (le défilement montre les autres) */
+  var items=[],updated=null;
+  var $=function(i){return document.getElementById(i);};
+  function ok(u){return /^https:\/\//.test(u||'');}
+  function ago(iso){
+    var m=Math.max(0,Math.round((Date.now()-new Date(iso).getTime())/60000));
+    if(m<2)return "À l'instant";
+    if(m<60)return 'Il y a '+m+' min';
+    var h=Math.round(m/60);
+    if(h<24)return 'Il y a '+h+' h';
+    var j=Math.round(h/24);return 'Il y a '+j+' j';
+  }
+  function card(a){
+    var l=document.createElement('a');l.className='in-card';l.target='_blank';l.rel='noopener noreferrer';
+    l.href=ok(a.link)?a.link:'#';
+    var im=document.createElement('div');im.className='in-img';
+    if(ok(a.img)){
+      var t=new Image();t.referrerPolicy='no-referrer';t.onload=function(){im.style.backgroundImage='url("'+a.img.replace(/"/g,'%22')+'")';im.textContent='';};
+      t.src=a.img;
+    }
+    im.textContent=(a.source||'?').charAt(0);
+    var b=document.createElement('div');b.className='in-body';
+    var h=document.createElement('div');h.className='in-t';h.textContent=a.title;
+    var m=document.createElement('div');m.className='in-m';m.setAttribute('data-ts',a.ts);
+    var s=document.createElement('b');s.textContent=a.source;
+    m.appendChild(s);m.appendChild(document.createTextNode(' · '+ago(a.ts)));
+    b.appendChild(h);b.appendChild(m);l.appendChild(im);l.appendChild(b);return l;
+  }
+  function render(){
+    var row=$('in-row');row.innerHTML='';
+    items.forEach(function(a){row.appendChild(card(a));});
+    stamp();
+  }
+  function stamp(){
+    var old=updated&&(Date.now()-updated.getTime())>3*3600000;
+    $('in-live').innerHTML='<span class="in-dot'+(old?' old':'')+'"></span>Mis à jour automatiquement';
+    var ms=document.querySelectorAll('#izily-news .in-m');
+    for(var i=0;i<ms.length;i++){var ts=ms[i].getAttribute('data-ts');ms[i].lastChild.textContent=' · '+ago(ts);}
+  }
+  function load(){
+    fetch(URL_JSON+'?t='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.json();})
+      .then(function(j){items=(j.items||[]).filter(function(a){return a&&a.title&&ok(a.link);});updated=new Date(j.updated);render();})
+      .catch(function(){if(!items.length)$('in-row').innerHTML='<p class="in-msg">Actualités momentanément indisponibles.</p>';});
+  }
+  load();
+  setInterval(load,300000);   /* recharge les données toutes les 5 min */
+  setInterval(stamp,60000);   /* met à jour les « Il y a … » chaque minute */
+})();
+</script>
